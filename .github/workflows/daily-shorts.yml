@@ -2,9 +2,11 @@ name: Daily Auto Shorts with YouTube Upload
 
 on:
   schedule:
-    - cron: "30 15 * * *"     # 9:00 PM India time (3:30 PM UTC)
+   - cron: "0 0 * * *"       # 5:30 AM India time (12:00 AM UTC)
+   - cron: "0 6 * * *"       # 11:30 AM India time (6:00 AM UTC)
+   - cron: "0 12 * * *"      # 5:30 PM India time (12:00 PM UTC)
+   - cron: "0 18 * * *"      # 11:30 PM India time (6:00 PM UTC)
   workflow_dispatch:
-
 jobs:
   generate-and-upload:
     runs-on: ubuntu-latest
