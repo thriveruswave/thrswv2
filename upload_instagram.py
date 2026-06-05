@@ -95,7 +95,7 @@ def upload_to_instagram(video_path, caption):
             'media_type': 'REELS',
             'video_url': video_url,
             'caption': caption_limited,
-            'share_to_feed': 'true',
+            'share_to_feed': 'false',
             'access_token': access_token
         }
         
