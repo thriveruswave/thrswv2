@@ -163,100 +163,30 @@ def upload_to_instagram(video_path, caption):
         container_id = container_response.json().get('id')
         print(f"[instagram] Container created: {container_id}")
 
-        print("[instagram] Step 3: Checking video processing status...")
-        max_wait = 180
-        waited = 0
-        poll_interval = 15
-        status_check_broken = False
+        print("[instagram] Step 3: Waiting 30 seconds for processing...")
+        time.sleep(30)
 
-        while waited < max_wait:
-            status_url = f"https://graph.facebook.com/v21.0/{container_id}"
-            status_params = {
-                'fields': 'status_code',
-                'access_token': access_token
-            }
-
-            try:
-                status_response = requests.get(status_url, params=status_params, timeout=(10, 20))
-            except Exception:
-                status_response = None
-
-            if not status_response or status_response.status_code != 200:
-                try:
-                    status_url = f"https://graph.instagram.com/v21.0/{container_id}"
-                    status_response = requests.get(status_url, params=status_params, timeout=(10, 20))
-                except Exception:
-                    pass
-
-            status_data = status_response.json() if status_response else {}
-            status_code = status_data.get('status_code', 'UNKNOWN')
-
-            is_auth_error = False
-            if status_data and 'error' in status_data:
-                error_subcode = status_data['error'].get('error_subcode', 0)
-                if error_subcode == 33:
-                    is_auth_error = True
-                    if not status_check_broken:
-                        print("[instagram] Status endpoint not accessible. Using fixed delay.")
-                        status_check_broken = True
-
-            if is_auth_error:
-                waited += poll_interval
-                if waited >= 60:
-                    print(f"[instagram] Auth error persisted, proceeding to publish after {waited}s")
-                    break
-                time.sleep(poll_interval)
-                continue
-
-            print(f"[instagram] Status: {status_code} (waited {waited}s)")
-
-            if status_code == 'FINISHED':
-                print("[instagram] Video processing complete!")
-                break
-            elif status_code == 'ERROR':
-                error_msg = status_data.get('error_message', 'Video processing failed')
-                print(f"[instagram] {error_msg}")
-                raise Exception(error_msg)
-            elif status_code == 'UNKNOWN' and waited >= 120:
-                print(f"[instagram] Still UNKNOWN after {waited}s, publishing anyway...")
-                break
-
-            time.sleep(poll_interval)
-            waited += poll_interval
-
-        if waited >= max_wait:
-            print("[instagram] Max wait reached, attempting to publish anyway...")
-
-        print("[instagram] Step 4: Publishing to Instagram... (5s buffer)")
-        time.sleep(5)
-
+        # Step 4: Publish
+        print("[instagram] Step 4: Publishing to Instagram...")
         publish_url = f"https://graph.facebook.com/v21.0/{user_id}/media_publish"
         publish_params = {
-            'creation_id': container_id,
-            'access_token': access_token
+            "creation_id": container_id,
+            "access_token": access_token
         }
+        publish_response = requests.post(publish_url, params=publish_params, timeout=60)
 
-        max_publish_retries = 3
-        publish_response = None
-
-        for attempt in range(max_publish_retries):
+        if publish_response.status_code != 200:
+            print("[instagram] First publish failed, retrying after 20s...")
+            time.sleep(20)
             publish_response = requests.post(publish_url, params=publish_params, timeout=60)
-            if publish_response.status_code == 200:
-                break
-            print(f"[instagram] Publish attempt {attempt+1} failed. Retrying...")
-            time.sleep(10)
 
-            if attempt == max_publish_retries - 1:
-                publish_url = f"https://graph.instagram.com/v21.0/{user_id}/media_publish"
-                publish_response = requests.post(publish_url, params=publish_params, timeout=60)
-
-        if not publish_response or publish_response.status_code != 200:
+        if publish_response.status_code != 200:
             error_data = publish_response.json() if publish_response and publish_response.text else {}
-            error_msg = error_data.get('error', {}).get('message', 'Unknown error')
-            print(f"[instagram] Publish failed after retries: {error_msg}")
-            raise Exception(f"Publish Error: {error_msg}")
+            error_msg = error_data.get("error", {}).get("message", "Unknown error")
+            print(f"[instagram] Publish failed: {error_msg}")
+            raise Exception(f"Instagram Publish Error: {error_msg}")
 
-        media_id = publish_response.json().get('id')
+        media_id = publish_response.json().get("id")
 
         print("[instagram] SUCCESS! Video published to Instagram!")
         print(f"[instagram] Media ID: {media_id}")
