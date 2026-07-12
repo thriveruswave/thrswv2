@@ -17,77 +17,6 @@ if sys.platform == 'win32':
 REQ_TIMEOUT = (15, 120)
 
 
-def upload_to_tempfile(file_path):
-    with open(file_path, 'rb') as f:
-        resp = requests.post(
-            'https://tmpfiles.org/api/v1/upload',
-            files={'file': ('video.mp4', f, 'video/mp4')},
-            timeout=REQ_TIMEOUT
-        )
-    if resp.status_code != 200:
-        raise Exception(f"tmpfiles.org failed: {resp.status_code} {resp.text[:200]}")
-    data = resp.json()
-    if data.get('status') != 'success':
-        raise Exception(f"tmpfiles.org failed: {data}")
-    return data.get('data', {}).get('url', '').replace('tmpfiles.org/', 'tmpfiles.org/dl/')
-
-
-def upload_to_0x0(file_path):
-    with open(file_path, 'rb') as f:
-        resp = requests.post(
-            'https://0x0.st',
-            files={'file': ('video.mp4', f, 'video/mp4')},
-            timeout=REQ_TIMEOUT
-        )
-    if resp.status_code != 200:
-        raise Exception(f"0x0.st failed: {resp.status_code} {resp.text[:200]}")
-    url = resp.text.strip()
-    if not url.startswith('https://'):
-        raise Exception(f"0x0.st returned invalid URL: {url}")
-    return url
-
-
-def upload_to_catbox(file_path):
-    with open(file_path, 'rb') as f:
-        resp = requests.post(
-            'https://catbox.moe/user/api.php',
-            data={'reqtype': 'fileupload'},
-            files={'fileToUpload': ('video.mp4', f, 'video/mp4')},
-            timeout=REQ_TIMEOUT
-        )
-    if resp.status_code != 200:
-        raise Exception(f"catbox.moe failed: {resp.status_code} {resp.text[:200]}")
-    url = resp.text.strip()
-    if not url.startswith('https://'):
-        raise Exception(f"catbox.moe returned invalid URL: {url}")
-    return url
-
-
-def upload_to_uguu(file_path):
-    with open(file_path, 'rb') as f:
-        resp = requests.post(
-            'https://uguu.se/upload',
-            files={'files[]': ('video.mp4', f, 'video/mp4')},
-            timeout=REQ_TIMEOUT
-        )
-    if resp.status_code != 200:
-        raise Exception(f"uguu.se failed: {resp.status_code} {resp.text[:200]}")
-    data = resp.json()
-    if not data.get('success'):
-        raise Exception(f"uguu.se failed: {data}")
-    return data['files'][0]['url']
-
-
-HOSTING_SERVICES = [
-    ("catbox.moe", upload_to_catbox),
-    ("uguu.se", upload_to_uguu),
-    ("tmpfiles.org", upload_to_tempfile),
-    ("0x0.st", upload_to_0x0),
-]
-
-
-def upload_to_temporary_host(file_path):
-    last_error = None
     for name, upload_func in HOSTING_SERVICES:
         try:
             print(f"[instagram] Trying {name}...")
@@ -131,11 +60,21 @@ def upload_to_instagram(video_path, caption):
     print(f"[instagram] Caption length: {len(caption_limited)} characters")
 
     try:
-        print("[instagram] Step 1: Uploading to temporary hosting...")
-        video_url = upload_to_temporary_host(video_path_obj)
-        print(f"[instagram] Temporary URL: {video_url}")
-
-        print("[instagram] Step 2: Creating Instagram container...")
+        print("[instagram] Step 1: Uploading to GitHub raw URL...")
+        import subprocess as _sp, uuid as _uuid, os as _os
+        _vid_name = "ig_" + _uuid.uuid4().hex[:8] + ".mp4"
+        _os.system("cp " + str(upload_path) + " " + _vid_name)
+        _os.system("git config --global user.email bot@bot.com")
+        _os.system("git config --global user.name Bot")
+        _os.system("git add -f " + _vid_name)
+        _os.system("git commit -m \"add " + _vid_name + "\"")
+        for _ in range(3):
+            _ret = _os.system("git push origin main")
+            if _ret == 0:
+                break
+            time.sleep(5)
+        video_url = "https://raw.githubusercontent.com/" + thriveruswave + "/" + thrswv2 + "/main/" + _vid_name
+        print("[instagram] GitHub raw URL: " + video_url)
         container_url = f"https://graph.facebook.com/v21.0/{user_id}/media"
         container_params = {
             'media_type': 'REELS',
