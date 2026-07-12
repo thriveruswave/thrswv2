@@ -79,10 +79,10 @@ def upload_to_uguu(file_path):
 
 
 HOSTING_SERVICES = [
-    ("tmpfiles.org", upload_to_tempfile),
-    ("0x0.st", upload_to_0x0),
     ("catbox.moe", upload_to_catbox),
     ("uguu.se", upload_to_uguu),
+    ("tmpfiles.org", upload_to_tempfile),
+    ("0x0.st", upload_to_0x0),
 ]
 
 
