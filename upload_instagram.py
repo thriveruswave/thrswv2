@@ -63,7 +63,7 @@ def upload_to_instagram(video_path, caption):
         print("[instagram] Step 1: Uploading to GitHub raw URL...")
         import subprocess as _sp, uuid as _uuid, os as _os
         _vid_name = "ig_" + _uuid.uuid4().hex[:8] + ".mp4"
-        _os.system("cp " + str(upload_path) + " " + _vid_name)
+        _os.system("cp " + str(video_path) + " " + _vid_name)
         _os.system("git config --global user.email bot@bot.com")
         _os.system("git config --global user.name Bot")
         _os.system("git add -f " + _vid_name)
