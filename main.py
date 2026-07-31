@@ -91,7 +91,9 @@ def choose_topic_for_today():
     # Mark as used
     with open(USED_TOPICS_FILE, "a", encoding="utf-8") as f:
         f.write(today_topic + "\n")
-        
+    
+    return today_topic
+    
 
 def generate_scene_descriptions(story: str) -> list:
     """Extract distinct scene descriptions from the story sentences."""
