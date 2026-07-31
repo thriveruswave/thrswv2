@@ -95,6 +95,67 @@ def choose_topic_for_today():
     return today_topic
     
 
+def generate_story_with_pollinations(topic: str) -> str:
+    """Generate a short Russian story about the topic using Pollinations AI."""
+    if not POLLINATIONS_API_KEY:
+        print("[story] Warning: No API key, using topic as story")
+        return topic
+    
+    url = "https://gen.pollinations.ai/v1/chat/completions"
+    
+    headers = {
+        "Authorization": f"Bearer {POLLINATIONS_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    system_prompt = (
+        "Ты историк и рассказчик. Напиши короткий познавательный рассказ на русском языке "
+        f"(не более {STORY_MAX_WORDS} слов) на тему, подходящий для короткого вертикального видео. "
+        "Выводи только текст рассказа, без заголовков и пояснений."
+    )
+    
+    payload = {
+        "model": TEXT_MODEL,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": topic}
+        ],
+        "temperature": 0.8,
+        "max_tokens": 500
+    }
+    
+    # Retry mechanism for story generation
+    for attempt in range(3):
+        try:
+            # Add Connection: close to prevent hangs
+            headers["Connection"] = "close"
+            
+            if attempt == 0:
+                print(f"[story] Generating story about: {topic}")
+            
+            r = requests.post(url, headers=headers, json=payload, timeout=30)
+            r.raise_for_status()
+            
+            response_data = r.json()
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                story = response_data["choices"][0]["message"]["content"].strip()
+                story = story.strip('"').strip("'").strip()
+                print(f"[story] Story generated ({len(story.split())} words)")
+                return story
+            else:
+                raise ValueError("Invalid response format")
+                
+        except Exception as e:
+            print(f"[story] ⚠️ Attempt {attempt+1} failed: {e}")
+            if attempt < 2:
+                time.sleep(2)
+                continue
+            print(f"[story] ❌ Story generation failed after 3 attempts, using topic as story.")
+            return topic
+    
+    return topic
+
+
 def generate_scene_descriptions(story: str) -> list:
     """Extract distinct scene descriptions from the story sentences."""
     print(f"[scenes] Extracting {NUM_IMAGES} unique scene descriptions...")
