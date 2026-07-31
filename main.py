@@ -75,18 +75,20 @@ def choose_topic_for_today():
             print(f"[topic] Warning reading used_topics.txt: {e}")
             
     # Find first topic not yet used
-    today_topic = None
-    remaining_topics = []
-    for t in topics:
-        if not today_topic and t not in used_topics:
-            today_topic = t
-        else:
-            remaining_topics.append(t)
-            
-    # Fallback if all topics in file were already used
-    if not today_topic:
-        today_topic = topics[0]
-        remaining_topics = topics[1:]
+    available = [t for t in topics if t not in used_topics]
+    
+    # NEVER repeat: if the whole pool is used up, generate a fresh pool via AI
+    if not available:
+        print("[topic] All topics used! Generating a fresh pool...")
+        from generate_topics import generate_new_topics
+        new_topics = generate_new_topics(100)
+        with open(TOPICS_FILE, "w", encoding="utf-8") as f:
+            for t in new_topics:
+                f.write(t + "\n")
+        USED_TOPICS_FILE.write_text("")
+        available = new_topics
+    
+    today_topic = available[0]
         
     # Mark as used
     with open(USED_TOPICS_FILE, "a", encoding="utf-8") as f:
