@@ -28,12 +28,8 @@ def get_authenticated_service():
     refresh_token = os.getenv('YT_REFRESH_TOKEN')
     
     if not all([client_id, client_secret, refresh_token]):
-        raise ValueError(
-            "Missing credentials! Set these GitHub Secrets:\n"
-            "  - YT_CLIENT_ID\n"
-            "  - YT_CLIENT_SECRET\n"
-            "  - YT_REFRESH_TOKEN"
-        )
+        print("[youtube] ⏭️ Skipping: YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN not set.")
+        return None
     
     # Create credentials from refresh token
     creds = Credentials(
@@ -55,6 +51,10 @@ def upload_to_youtube(video_file, title, description, tags=None, category_id='22
     if tags is None:
         tags = ['История', 'Древний мир', 'Женщины в истории', 'History', 'Ancient History']
     youtube = get_authenticated_service()
+    
+    if youtube is None:
+        print("[youtube] ⏭️ Skipping upload (credentials not configured)")
+        return None
     
     body = {
         'snippet': {
