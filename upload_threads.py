@@ -183,24 +183,26 @@ def upload_to_threads(video_path, text):
             print(f"[threads] ❌ {error_msg}")
             raise Exception(error_msg)
         
-        # Step 3: Wait for processing
+        # Step 3: Wait for processing (minimal status checks with long sleeps)
         print(f"[threads] ⏳ Step 3: Waiting for video processing...")
-        max_wait = 180  # Increased wait time for processing
+        checks = [45, 30, 30, 30]  # 4 checks max, spaced out
         waited = 0
-        
-        while waited < max_wait:
+
+        for ci in range(len(checks)):
+            time.sleep(checks[ci])
+            waited += checks[ci]
             status_url = f"https://graph.threads.net/v1.0/{container_id}"
             status_params = {
                 'fields': 'status,error_message',
                 'access_token': access_token
             }
-            
+
             status_response = requests.get(status_url, params=status_params, timeout=30)
             status_data = status_response.json()
             status = status_data.get('status', 'UNKNOWN')
-            
+
             print(f"[threads] Status: {status} (waited {waited}s)")
-            
+
             if status == 'FINISHED':
                 print(f"[threads] ✅ Video processing complete!")
                 break
@@ -211,11 +213,8 @@ def upload_to_threads(video_path, text):
             elif status == 'EXPIRED':
                  print(f"[threads] ❌ Container expired")
                  raise Exception("Container expired before publishing")
-            
-            time.sleep(10)
-            waited += 10
-        
-        if waited >= max_wait:
+
+        if status != 'FINISHED':
             error_msg = "Video processing timed out"
             print(f"[threads] ❌ {error_msg}")
             raise Exception(error_msg)

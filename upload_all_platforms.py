@@ -161,11 +161,11 @@ def upload_to_all_platforms(video_path, caption, topic, metadata=None):
                 elif pname == "telegram":
                     r = func(video_path=video_path, caption=caption)
                 elif pname == "twitter":
-                    r = func(video_path=video_path, caption=caption)
+                    r = func(video_file=video_path, caption=caption)
                 elif pname == "threads":
                     r = func(video_path=video_path, text=caption)
                 elif pname == "tiktok":
-                    r = func(video_path=video_path, description=caption, title=topic[:100])
+                    r = func(video_file=video_path, title=topic[:100], description=caption)
                 elif pname == "facebook":
                     r = func(video_path=video_path, description=caption)
                 elif pname == "instagram":
