@@ -59,6 +59,39 @@ def _to_int(value):
     return int(s, 16) if s.lower().endswith(('a', 'b', 'c', 'd', 'e', 'f')) else int(s)
 
 
+def _upload_direct(video_path, page_id, access_token, description, title):
+    """Direct multipart upload to Facebook Page videos endpoint."""
+    url = f"{GRAPH_API}/{page_id}/videos"
+    with open(video_path, 'rb') as f:
+        r = requests.post(
+            url,
+            data={
+                'access_token': access_token,
+                'description': description[:500],
+                'title': title[:100],
+            },
+            files={
+                'source': (Path(video_path).name, f, 'video/mp4'),
+            },
+            timeout=300,
+        )
+    if r.status_code not in (200, 201):
+        try:
+            err_body = r.json()
+            err = err_body.get('error', {}).get('message', r.text)
+            err_code = err_body.get('error', {}).get('code', '')
+        except Exception:
+            err = r.text
+            err_code = ''
+        raise Exception(f"Direct upload failed (HTTP {r.status_code}, code={err_code}): {err}")
+    result = r.json()
+    video_id = result.get('id')
+    if not video_id:
+        raise Exception(f"Direct upload response missing id: {result}")
+    print(f"[facebook] ✅ Direct upload accepted, video ID: {video_id}")
+    return video_id
+
+
 def _upload_resumable(video_path, page_id, access_token, description, title):
     """Resumable-upload a video file to a Facebook Page."""
     url = f"{GRAPH_API}/{page_id}/videos"
@@ -100,8 +133,16 @@ def _upload_resumable(video_path, page_id, access_token, description, title):
                 timeout=300,
             )
             if t.status_code not in (200, 201):
-                err = t.json().get('error', {}).get('message', t.text) if t.text else 'unknown'
-                raise Exception(f"Transfer failed: {err}")
+                try:
+                    err_body = t.json()
+                    err = err_body.get('error', {}).get('message', t.text)
+                    err_code = err_body.get('error', {}).get('code', '')
+                    err_sub = err_body.get('error', {}).get('error_subcode', '')
+                except Exception:
+                    err = t.text
+                    err_code = ''
+                    err_sub = ''
+                raise Exception(f"Transfer failed (HTTP {t.status_code}, code={err_code}, sub={err_sub}): {err}")
             resp = t.json()
             start_offset = _to_int(resp['start_offset'])
             end_offset = _to_int(resp['end_offset'])
@@ -156,11 +197,11 @@ def _wait_for_ready(video_id, page_id, access_token, max_polls=4):
 
 def upload_to_facebook(video_path, description, title="Story"):
     """
-    Upload video to Facebook Page using Graph API RESUMABLE upload.
-    Verifies the video finished processing and returns the real permalink.
+    Upload video to Facebook Page using Graph API direct multipart upload.
+    Falls back to resumable upload for files > 25MB.
     """
     print("\n" + "=" * 60)
-    print("📘 FACEBOOK UPLOAD STARTING (RESUMABLE)")
+    print("📘 FACEBOOK UPLOAD STARTING")
     print("=" * 60)
 
     access_token = os.getenv('FB_ACCESS_TOKEN')
@@ -182,11 +223,9 @@ def upload_to_facebook(video_path, description, title="Story"):
     print(f"[facebook] ✅ Video file found: {video_path}")
     print(f"[facebook] Video size: {file_size_mb:.2f} MB")
 
-    # Compress if over 100MB (resumable handles large files, but cap keeps it fast)
-    current_video = video_path_obj
     if file_size_mb > 100:
         print(f"[facebook] Video over 100MB, compressing...")
-        current_video = _compress_video(current_video)
+        video_path_obj = _compress_video(video_path_obj)
 
     max_attempts = 3
     last_error = None
@@ -194,15 +233,23 @@ def upload_to_facebook(video_path, description, title="Story"):
     for attempt in range(1, max_attempts + 1):
         print(f"[facebook] 🚀 Attempt {attempt}/{max_attempts}...")
         try:
-            video_id = _upload_resumable(
-                current_video, page_id, access_token, description, title
-            )
+            use_resumable = file_size_mb > 25
+            if use_resumable:
+                print(f"[facebook] File > 25MB, using resumable upload...")
+                video_id = _upload_resumable(
+                    video_path_obj, page_id, access_token, description, title
+                )
+            else:
+                print(f"[facebook] File <= 25MB, using direct upload...")
+                video_id = _upload_direct(
+                    video_path_obj, page_id, access_token, description, title
+                )
 
             print(f"[facebook] Waiting for video processing...")
             permalink, video_status = _wait_for_ready(video_id, page_id, access_token)
 
-            if current_video != video_path_obj and current_video.exists():
-                current_video.unlink()
+            if video_path_obj != video_path_obj and video_path_obj.exists():
+                video_path_obj.unlink()
 
             if video_status == 'ready' and permalink:
                 print(f"[facebook] ✅ SUCCESS! Video published!")
