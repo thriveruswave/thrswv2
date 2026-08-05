@@ -51,6 +51,14 @@ def _phase(url, params):
     return r.json()
 
 
+def _to_int(value):
+    """Parse an offset returned by Meta (may be decimal or hex, str or int)."""
+    if isinstance(value, int):
+        return value
+    s = str(value).strip()
+    return int(s, 16) if s.lower().endswith(('a', 'b', 'c', 'd', 'e', 'f')) else int(s)
+
+
 def _upload_resumable(video_path, page_id, access_token, description, title):
     """Resumable-upload a video file to a Facebook Page."""
     url = f"{GRAPH_API}/{page_id}/videos"
@@ -65,9 +73,9 @@ def _upload_resumable(video_path, page_id, access_token, description, title):
         'name': Path(video_path).name,
     })
     upload_session_id = start['upload_session_id']
-    start_offset = int(start['start_offset'], 16)
-    end_offset = int(start['end_offset'], 16)
-    chunk_size = int(start.get('video_file_chunk_size', str(CHUNK_SIZE)), 16)
+    start_offset = _to_int(start['start_offset'])
+    end_offset = _to_int(start['end_offset'])
+    chunk_size = _to_int(start.get('video_file_chunk_size', str(CHUNK_SIZE)))
     print(f"[facebook] Session: {upload_session_id}")
 
     # Phase 2: transfer (chunked)
@@ -86,16 +94,17 @@ def _upload_resumable(video_path, page_id, access_token, description, title):
                     'upload_session_id': upload_session_id,
                     'start_offset': hex(start_offset),
                 },
-                data=data,
-                headers={'Content-Type': 'video/mp4'},
+                files={
+                    'video_file_chunk': (Path(video_path).name, data, 'video/mp4'),
+                },
                 timeout=300,
             )
             if t.status_code not in (200, 201):
                 err = t.json().get('error', {}).get('message', t.text) if t.text else 'unknown'
                 raise Exception(f"Transfer failed: {err}")
             resp = t.json()
-            start_offset = int(resp['start_offset'], 16)
-            end_offset = int(resp['end_offset'], 16)
+            start_offset = _to_int(resp['start_offset'])
+            end_offset = _to_int(resp['end_offset'])
             print(f"[facebook] Transferred {start_offset // 1024} KB / {file_size // 1024} KB")
 
     # Phase 3: finish
