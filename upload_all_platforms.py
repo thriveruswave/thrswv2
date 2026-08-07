@@ -104,8 +104,6 @@ def generate_caption(topic, metadata=None, platform="facebook"):
         base.append("")
         
     base.extend([
-        "Like & follow for daily history facts! 🏛️✨",
-        "",
         "#history #ancienthistory #historyfacts #historylovers #historical #ancient"
     ])
     
