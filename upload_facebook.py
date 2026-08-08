@@ -1,4 +1,4 @@
-"""
+﻿"""
 Facebook Reels Upload (Resumable)
 
 Uploads video to the Facebook Page using the Graph API RESUMABLE upload
@@ -68,6 +68,7 @@ def _upload_direct(video_path, page_id, access_token, description, title):
             data={
                 'access_token': access_token,
                 'description': description[:500],
+                'published': True,
                 'title': title[:100],
             },
             files={
@@ -88,7 +89,7 @@ def _upload_direct(video_path, page_id, access_token, description, title):
     video_id = result.get('id')
     if not video_id:
         raise Exception(f"Direct upload response missing id: {result}")
-    print(f"[facebook] ✅ Direct upload accepted, video ID: {video_id}")
+    print(f"[facebook] âœ… Direct upload accepted, video ID: {video_id}")
     return video_id
 
 
@@ -155,12 +156,13 @@ def _upload_resumable(video_path, page_id, access_token, description, title):
         'upload_phase': 'finish',
         'upload_session_id': upload_session_id,
         'description': description[:500],
+                'published': True,
         'title': title[:100],
     })
     video_id = fin.get('video_id')
     if not video_id:
         raise Exception(f"Finish response missing video_id: {fin}")
-    print(f"[facebook] ✅ Upload accepted, video ID: {video_id}")
+    print(f"[facebook] âœ… Upload accepted, video ID: {video_id}")
     return video_id
 
 
@@ -201,26 +203,26 @@ def upload_to_facebook(video_path, description, title="Story"):
     Falls back to resumable upload for files > 25MB.
     """
     print("\n" + "=" * 60)
-    print("📘 FACEBOOK UPLOAD STARTING")
+    print("ðŸ“˜ FACEBOOK UPLOAD STARTING")
     print("=" * 60)
 
     access_token = os.getenv('FB_ACCESS_TOKEN')
     page_id = os.getenv('FB_PAGE_ID')
 
     if not access_token:
-        raise ValueError("❌ FB_ACCESS_TOKEN not set")
+        raise ValueError("âŒ FB_ACCESS_TOKEN not set")
     if not page_id:
-        raise ValueError("❌ FB_PAGE_ID not set")
+        raise ValueError("âŒ FB_PAGE_ID not set")
 
-    print(f"[facebook] ✅ Credentials loaded")
+    print(f"[facebook] âœ… Credentials loaded")
     print(f"[facebook] Page ID: {page_id}")
 
     video_path_obj = Path(video_path)
     if not video_path_obj.exists():
-        raise FileNotFoundError(f"❌ Video file not found: {video_path}")
+        raise FileNotFoundError(f"âŒ Video file not found: {video_path}")
 
     file_size_mb = video_path_obj.stat().st_size / (1024 * 1024)
-    print(f"[facebook] ✅ Video file found: {video_path}")
+    print(f"[facebook] âœ… Video file found: {video_path}")
     print(f"[facebook] Video size: {file_size_mb:.2f} MB")
 
     if file_size_mb > 100:
@@ -231,7 +233,7 @@ def upload_to_facebook(video_path, description, title="Story"):
     last_error = None
 
     for attempt in range(1, max_attempts + 1):
-        print(f"[facebook] 🚀 Attempt {attempt}/{max_attempts}...")
+        print(f"[facebook] ðŸš€ Attempt {attempt}/{max_attempts}...")
         try:
             use_resumable = file_size_mb > 25
             if use_resumable:
@@ -252,7 +254,7 @@ def upload_to_facebook(video_path, description, title="Story"):
                 video_path_obj.unlink()
 
             if video_status == 'ready' and permalink:
-                print(f"[facebook] ✅ SUCCESS! Video published!")
+                print(f"[facebook] âœ… SUCCESS! Video published!")
                 print(f"[facebook] Video ID: {video_id}")
                 print(f"[facebook] Permalink: {permalink}")
                 print("=" * 60)
@@ -265,16 +267,16 @@ def upload_to_facebook(video_path, description, title="Story"):
 
             if video_status == 'error':
                 msg = f"Facebook video {video_id} failed processing (status=error)"
-                print(f"[facebook] ❌ {msg}")
+                print(f"[facebook] âŒ {msg}")
                 last_error = msg
             else:
                 msg = f"Facebook video {video_id} still processing after timeout"
-                print(f"[facebook] ⚠️ {msg}")
+                print(f"[facebook] âš ï¸ {msg}")
                 last_error = msg
 
         except Exception as e:
             last_error = str(e)
-            print(f"[facebook] ❌ Attempt {attempt} failed: {last_error}")
+            print(f"[facebook] âŒ Attempt {attempt} failed: {last_error}")
 
         if attempt < max_attempts:
             wait = attempt * 15
@@ -283,3 +285,4 @@ def upload_to_facebook(video_path, description, title="Story"):
 
     print("=" * 60)
     raise Exception(f"Facebook upload failed after {max_attempts} attempts. Last error: {last_error}")
+
